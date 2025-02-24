@@ -1,0 +1,303 @@
+﻿function Start-SPOSAMReportCollection {
+
+    <#
+        .SYNOPSIS
+            Starts the SharePoint Online Security and Access Management (SAM) report collection.
+
+        .DESCRIPTION
+            This cmdlet is used to generate DAG reports which deal with potential oversharing of sensitive data.
+            These reports are present in Sharepoint admin center. Reports are currently available for the following scenarios:
+
+            Sharing links created in last 28 days (Anyone, People-in-your-org, Specific people shared externally).
+            Content shared with Everyone except external users (EEEU) in last 28 days.
+            List of sites having labelled files, as of report generation time.
+            List of sites having 'too-many-users', as of report generation time, to setup an oversharing baseline.
+
+        .PARAMETER CheckSensitivityLabel
+            A switch parameter that, if specified, will check for sensitivity labels on files in the site.
+            This will make a connection to the Security & Compliance Center to retrieve labels.
+
+        .PARAMETER CountOfUsersMoreThan
+            Specifies the threshold of oversharing as defined by the number of users that can access the site.
+            The number of users that can access the site are determined by expanding all users, groups across all
+            permissions (at site level and at the level of any item with unique permissions), deduplicate and
+            arrive at a unique number. Minimum value is 100.
+            Default for this script is 0.
+
+        .PARAMETER DisconnectFromSPO
+            A switch parameter that, if specified, will disconnect from SharePoint Online after the report collection is completed.
+
+        .PARAMETER Privacy
+            Specifies the privacy setting of the Microsoft 365 group. Relevant in case of filtering the report for group connected sites.
+            Valid values are 'All', 'Private', and 'Public'.
+            Default for this script is is 'All'.
+
+        .PARAMETER ReportEntity
+            Specifies the entity for which the report should be generated. Valid values are:
+            - EveryoneExceptExternalUsersAtSite
+            - EveryoneExceptExternalUsersForItems
+            - SharingLinks_Anyone
+            - SharingLinks_PeopleInYourOrg
+            - SharingLinks_Guests
+            - SensitivityLabelForFiles
+            - PermissionedUsers
+
+        .PARAMETER ReportType
+            Specifies the time period of data based on which DAG report is generated.
+            A 'Snapshot' report will have the latest data as of the report generation time.
+            A 'RecentActivity' report will be based on data in the last 28 days.
+            Default for this script is 'RecentActivity'.
+
+        .PARAMETER Template
+            Specifies the template of the site. Relevant in case a report should be generated for that particular template.
+            Valid values are 'AllSites', 'ClassicSites', 'CommunicationSites', 'TeamSites', and 'OtherSites'.
+
+        .PARAMETER TenantDomain
+            Specifies the domain of the tenant. This parameter is mandatory.
+
+        .PARAMETER TenantAdminUrl
+            Specifies the URL of the tenant admin site. Default is "https://$TenantDomain-admin.sharepoint.com".
+
+        .PARAMETER UserPrincipalName
+            Specifies the username for authentication.
+
+        .PARAMETER Workload
+            Specifies the workload for which the report should be generated. Valid values are 'SharePoint' and 'OneDriveForBusiness'. Default is 'SharePoint'.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -CheckSensitivityLabel
+
+            This example will generate reports for all entities with the default parameters as well as check the sensitivity labels.
+            This will connect you to the Security and Compliance Center to read the labels in the tenant.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -CountOfUsersMoreThan 100
+
+            This example will generate reports for all entities with the default parameters and a threshold of 100 users.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -Privacy Private
+
+            This example will generate reports for all entities with the default parameters and filter the report for private sites.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -ReportEntity SharingLinks_Anyone
+
+            This example will generate a report for the 'SharingLinks_Anyone' entity with the default parameters.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -ReportType Snapshot
+
+            This example will generate a snapshot report for all entities with the default parameters.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -Template TeamSites
+
+            This example will generate reports for all entities with the default parameters and filter the report for team sites.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -Workload OneDriveForBusiness
+
+            This example will generate reports for all entities with the default parameters and filter the report for OneDrive for Business.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -DisconnectFromSPO
+
+            This example will generate reports for all entities with the default parameters and disconnect from SharePoint Online after the report collection is completed.
+
+        .NOTES
+            For more information please see: https://learn.microsoft.com/en-us/sharepoint/data-access-governance-reports
+    #>
+
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
+    param
+    (
+        [Parameter(ParameterSetName = 'Default')]
+        [switch]
+        $CheckSensitivityLabel,
+
+        [Parameter(ParameterSetName = 'Default')]
+        [Int]
+        $CountOfUsersMoreThan = 0,
+
+        [Parameter(ParameterSetName = 'Default')]
+        [switch]
+        $DisconnectFromSPO,
+
+        [Parameter(ParameterSetName = 'Default')]
+        [ValidateSet('All', 'Private', 'Public')]
+        [string]
+        $Privacy = 'All',
+
+        [Parameter(ParameterSetName = 'Default')]
+        [ValidateSet('EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')]
+        [string]
+        $ReportEntity,
+
+        [Parameter(ParameterSetName = 'Default')]
+        [ValidateSet('Snapshot', 'RecentActivity')]
+        [string]
+        $ReportType = 'RecentActivity',
+
+        [Parameter(ParameterSetName = 'Default')]
+        [ValidateSet('AllSites', 'ClassicSites', 'CommunicationSites', 'TeamSites', 'OtherSites')]
+        [string]
+        $Template,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'Default')]
+        [string]
+        $TenantDomain,
+
+        [Parameter(ParameterSetName = 'Default')]
+        [string]
+        $TenantAdminUrl = "https://$TenantDomain-admin.sharepoint.com",
+
+        [Parameter(ParameterSetName = 'Default')]
+        [ValidateSet('SharePoint', 'OneDriveForBusiness')]
+        [string]
+        $Workload = "SharePoint",
+
+        [Parameter(ParameterSetName = 'Default')]
+        [string]
+        $UserPrincipalName
+    )
+
+    # Check if running as administrator
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Output "This script must be run as an administrator."
+        return
+    }
+
+    # Save parameters to a hashtable
+    $parameters = $PSBoundParameters
+    $modules = @('Microsoft.Online.SharePoint.PowerShell', 'ExchangeOnlineManagement')
+
+    foreach ($module in $modules) {
+        try {
+            # Check if the module is installed
+            if (-not (Get-Module -ListAvailable -Name $module)) {
+                # Install the module
+                Install-Module -Name $module -Force -AllowClobber
+                Write-Verbose "Installed $module module."
+            }
+            else {
+                Write-Verbose "$module module already installed."
+            }
+
+            # Import the module
+            if (-not (Get-Module -Name $module)) {
+                if ($PSVersionTable.PSEdition -eq "Core") {
+                    Import-Module -Name $module -UseWindowsPowerShell -ErrorAction SilentlyContinue
+                    Write-Verbose "Connecting with Windows PowerShell Core Version for $module."
+                }
+                else {
+                    Import-Module -Name $module
+                    Write-Verbose "Connecting with Windows PowerShell Desktop Version for $module."
+                }
+            }
+            else {
+                Write-Verbose "$module module already imported."
+            }
+        }
+        catch {
+            Write-Output "$_"
+            return
+        }
+    }
+
+    # Check connection to SharePoint Online
+    try {
+        $connection = Get-SPOTenant -ErrorAction SilentlyContinue
+        if (-not $connection) {
+            Write-Output "Not connected to SharePoint Online. Attempting to connect to SharePoint Online"
+            Connect-SPOService -Url $TenantAdminUrl -ErrorAction SilentlyContinue
+            Write-Output "Connected to SharePoint Online."
+        }
+        else {
+            Write-Verbose "Connected to SharePoint Online."
+        }
+    }
+    catch {
+        write-Output "$_"
+        return
+    }
+
+    try {
+        if ($ReportEntity) {
+            $reportEntities = $ReportEntity
+        }
+        else {
+            $reportEntities = @('EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')
+        }
+
+        foreach ($entity in $reportEntities) {
+            # Build reports
+            Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) as been generated."
+
+            if ($Template) {
+                $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $report.ReportID`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $report.ReportID"
+            }
+            else {
+                $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $report.ReportID`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $report.ReportID"
+            }
+        }
+
+        # Check for sensitivity labels if specified.
+        if ($parameters.ContainsKey('CheckSensitivityLabel')) {
+            if (-not $UserPrincipalName) {
+                $UserPrincipalName = Read-Host "UserPrincipalName is required to connect to the Security & Compliance Center. Please enter the UserPrincipalName"
+                if (-not $UserPrincipalName) {
+                    Write-Output "UserPrincipalName is required to connect to the Security & Compliance Center."
+                    return
+                }
+                else {
+                    Write-Output "Connecting to the Security & Compliance Center."
+                    Connect-IPPSSession -UserPrincipalName $UserPrincipalName -ShowBanner:$False -ErrorAction Stop
+                    Write-Output "Obtaining labels from the Security & Compliance Center."
+                    $labels = Get-Label | Select-Object DisplayName, GUID
+
+                    do {
+                        $labelMenu = @()
+                        $index = 1
+                        foreach ($label in $labels) {
+                            $labelMenu += "$index. $($label.DisplayName) - $($label.GUID)"
+                            $index++
+                        }
+
+                        $labelMenu | ForEach-Object { Write-Output $_ }
+                        $selection = Read-Host "Select a label by entering the corresponding number or type 'c' to cancel"
+
+                        if ($selection -eq 'c') {
+                            Write-Output "Operation cancelled by user."
+                            return
+                        }
+
+                        $selectedLabel = $labels[$selection - 1]
+
+                    } while (-not $selectedLabel)
+
+                    Write-Verbose "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
+                    Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
+                    $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $selectedLabel.GUID -FileSensitivityLabelName $selectedLabel.DisplayName
+                    Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $report.ReportID`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $report.ReportID"
+                }
+            }
+        }
+    }
+    catch {
+        Write-Output "$_"
+    }
+    finally {
+        if ($DisconnectFromSPO -eq $True) {
+            Write-Output "Disconnecting from the SPOService."
+            Disconnect-SPOService
+        }
+        else {
+            Write-Output "Not disconnecting from the SPOService."
+        }
+    }
+}
