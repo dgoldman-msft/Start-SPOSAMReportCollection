@@ -12,6 +12,12 @@ Content shared with Everyone except external users (EEEU) in last 28 days.
 List of sites having labelled files, as of report generation time.
 List of sites having 'too-many-users', as of report generation time, to setup an oversharing baseline.
 
+## How to get started with Start-SPOSAMReportCollection
+
+1. Download this in to a directory of your choice
+2. Navigate to that directory and run run: Import-Module -Name .\Start-SPOSAMReportCollection.ps1 (this will import in to the local PowerShell session)
+3. Run one of the examples below and allow for tab completion to see all of the available options
+
 ## EXAMPLE 1
     C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -CheckSensitivityLabel
 
@@ -55,3 +61,4 @@ List of sites having 'too-many-users', as of report generation time, to setup an
 
 ## NOTES
 - For more information please see: https://learn.microsoft.com/en-us/sharepoint/data-access-governance-reports
+- This script will install both the Microsoft.Online.SharePoint.PowerShell and ExchangeOnlineManagement modules if they are not installed.

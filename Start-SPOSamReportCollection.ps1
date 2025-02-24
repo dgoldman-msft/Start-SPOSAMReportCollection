@@ -1,5 +1,4 @@
 ﻿function Start-SPOSAMReportCollection {
-
     <#
         .SYNOPSIS
             Starts the SharePoint Online Security and Access Management (SAM) report collection.
@@ -238,11 +237,11 @@
 
             if ($Template) {
                 $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
-                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $report.ReportID`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $report.ReportID"
+                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report).ReportID`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
             }
             else {
                 $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
-                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $report.ReportID`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $report.ReportID"
+                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
             }
         }
 
@@ -282,8 +281,8 @@
 
                     Write-Verbose "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
                     Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
-                    $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $selectedLabel.GUID -FileSensitivityLabelName $selectedLabel.DisplayName
-                    Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $report.ReportID`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $report.ReportID"
+                    $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName)
+                    Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
                 }
             }
         }
