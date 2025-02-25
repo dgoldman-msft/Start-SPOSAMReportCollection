@@ -170,7 +170,9 @@
     }
 
     # Save parameters to a hashtable
-    $parameters = $PSBoundParameters
+    $script:reportGenerated = $false
+    $script:disconnectFromSCC = $false
+    $script:parameters = $PSBoundParameters
     $modules = @('Microsoft.Online.SharePoint.PowerShell', 'ExchangeOnlineManagement')
 
     foreach ($module in $modules) {
@@ -231,59 +233,61 @@
             $reportEntities = @('EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')
         }
 
+        # Build reports
         foreach ($entity in $reportEntities) {
-            # Build reports
-            Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) as been generated."
+            if ($ReportType -eq "Snapshot" -and $entity -ne "PermissionedUsers" -and $entity -ne "SensitivityLabelForFiles") {
+                Write-Output "ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
+                return
+            }
 
-            if ($Template) {
-                $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
-                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report).ReportID`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
+            # Check for sensitivity labels if specified.
+            if ($entity -eq "SensitivityLabelForFiles" -and $CheckSensitivityLabel) {
+                if (-not $UserPrincipalName) {
+                    $UserPrincipalName = Read-Host "UserPrincipalName is required to connect to the Security & Compliance Center.`nPlease enter the UserPrincipalName"
+                    if (-not $UserPrincipalName) {
+                        Write-Output "UserPrincipalName not provided. Exiting."
+                        $disconnectFromSCC = $true
+                        return
+                    }
+                }
+
+                Write-Output "Connecting to the Security & Compliance Center."
+                Connect-IPPSSession -UserPrincipalName $UserPrincipalName -ShowBanner:$False -ErrorAction Stop
+                Write-Output "Connected to the Security & Compliance Center. Obtaining labels from the Security & Compliance Center."
+                $labels = Get-Label | Select-Object DisplayName, GUID -ErrorAction Stop
+
+                do {
+                    $labelMenu = $labels | ForEach-Object { "$($_.DisplayName) - $($_.GUID)" }
+                    $labelMenu | ForEach-Object { Write-Output $_ }
+                    $selection = Read-Host "Select a label by entering the corresponding number or type 'c' to cancel"
+
+                    if ($selection -eq 'c') {
+                        Write-Output "Operation cancelled by user."
+                        return
+                    }
+                    $selectedLabel = $labels[$selection - 1]
+                } while (-not $selectedLabel)
+
+                Write-Verbose "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
+                Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
+                $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName)
+                if ($($report.ReportID)) { $reportGenerated = $true }
             }
             else {
-                $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
-                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
-            }
-        }
-
-        # Check for sensitivity labels if specified.
-        if ($parameters.ContainsKey('CheckSensitivityLabel')) {
-            if (-not $UserPrincipalName) {
-                $UserPrincipalName = Read-Host "UserPrincipalName is required to connect to the Security & Compliance Center. Please enter the UserPrincipalName"
-                if (-not $UserPrincipalName) {
-                    Write-Output "UserPrincipalName is required to connect to the Security & Compliance Center."
-                    return
+                if ($Template) {
+                    $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                    if ($($report.ReportID)) { $reportGenerated = $true }
                 }
                 else {
-                    Write-Output "Connecting to the Security & Compliance Center."
-                    Connect-IPPSSession -UserPrincipalName $UserPrincipalName -ShowBanner:$False -ErrorAction Stop
-                    Write-Output "Obtaining labels from the Security & Compliance Center."
-                    $labels = Get-Label | Select-Object DisplayName, GUID
-
-                    do {
-                        $labelMenu = @()
-                        $index = 1
-                        foreach ($label in $labels) {
-                            $labelMenu += "$index. $($label.DisplayName) - $($label.GUID)"
-                            $index++
-                        }
-
-                        $labelMenu | ForEach-Object { Write-Output $_ }
-                        $selection = Read-Host "Select a label by entering the corresponding number or type 'c' to cancel"
-
-                        if ($selection -eq 'c') {
-                            Write-Output "Operation cancelled by user."
-                            return
-                        }
-
-                        $selectedLabel = $labels[$selection - 1]
-
-                    } while (-not $selectedLabel)
-
-                    Write-Verbose "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
-                    Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
-                    $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName)
-                    Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
+                    $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                    if ($($report.ReportID)) { $reportGenerated = $true }
                 }
+            }
+
+            # End user notifications
+            if ($reportGenerated -eq $true) {
+                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
+                Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
             }
         }
     }
@@ -291,6 +295,15 @@
         Write-Output "$_"
     }
     finally {
+        # Disconnect from Security & Compliance Center if connected
+        if ($CheckSensitivityLabel -or $disconnectFromSCC) {
+            Write-Output "Disconnecting from the Security & Compliance Center."
+            Disconnect-IPPSSession
+        }
+        else {
+            Write-Output "Not disconnecting from the Security & Compliance Center."
+        }
+
         if ($DisconnectFromSPO -eq $True) {
             Write-Output "Disconnecting from the SPOService."
             Disconnect-SPOService
