@@ -180,7 +180,7 @@
             # Check if the module is installed
             if (-not (Get-Module -ListAvailable -Name $module)) {
                 # Install the module
-                Install-Module -Name $module -Force -AllowClobber
+                Install-Module -Name $module -Force -AllowClobber -ErrorAction SilentlyContinue
                 Write-Verbose "Installed $module module."
             }
             else {
@@ -188,13 +188,18 @@
             }
 
             # Import the module
+            if ($module -eq "ExchangeOnlineManagement" -and (Get-Module -Name $module -ListAvailable).Version -eq [version]"1.0.0.0") {
+                Remove-Module -Name $module -Force -ErrorAction SilentlyContinue
+                Write-Verbose "Removed ExchangeOnlineManagement module version 1.0.0.0."
+            }
+
             if (-not (Get-Module -Name $module)) {
-                if ($PSVersionTable.PSEdition -eq "Core") {
+                if ($PSVersionTable.PSEdition -eq "Core" -and $module -eq "Microsoft.Online.SharePoint.PowerShell") {
                     Import-Module -Name $module -UseWindowsPowerShell -ErrorAction SilentlyContinue
                     Write-Verbose "Connecting with Windows PowerShell Core Version for $module."
                 }
                 else {
-                    Import-Module -Name $module
+                    Import-Module -Name $module -ErrorAction SilentlyContinue
                     Write-Verbose "Connecting with Windows PowerShell Desktop Version for $module."
                 }
             }
@@ -210,6 +215,7 @@
 
     # Check connection to SharePoint Online
     try {
+        Write-Verbose "Checking for prior connection to SharePoint Online."
         $connection = Get-SPOTenant -ErrorAction SilentlyContinue
         if (-not $connection) {
             Write-Output "Not connected to SharePoint Online. Attempting to connect to SharePoint Online"
@@ -236,7 +242,12 @@
         # Build reports
         foreach ($entity in $reportEntities) {
             if ($ReportType -eq "Snapshot" -and $entity -ne "PermissionedUsers" -and $entity -ne "SensitivityLabelForFiles") {
-                Write-Output "ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
+                Write-Output "WARNING: ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
+                return
+            }
+
+            if ($entity -eq "SensitivityLabelForFiles" -and ($Workload -eq "SharePoint" -or $Workload -eq "OneDriveForBusiness") -and $ReportType -eq "RecentActivity") {
+                Write-Output "WARNING: ReportType 'RecentActivity' with ReportEntity 'SensitivityLabelForFiles' entity with 'SharePoint' workload at this time."
                 return
             }
 
@@ -257,7 +268,7 @@
                 $labels = Get-Label | Select-Object DisplayName, GUID -ErrorAction Stop
 
                 do {
-                    $labelMenu = $labels | ForEach-Object { "$($_.DisplayName) - $($_.GUID)" }
+                    $labelMenu = $labels | ForEach-Object { "$($labels.IndexOf($_) + 1). $($_.DisplayName) - $($_.GUID)" }
                     $labelMenu | ForEach-Object { Write-Output $_ }
                     $selection = Read-Host "Select a label by entering the corresponding number or type 'c' to cancel"
 
@@ -298,7 +309,7 @@
         # Disconnect from Security & Compliance Center if connected
         if ($CheckSensitivityLabel -or $disconnectFromSCC) {
             Write-Output "Disconnecting from the Security & Compliance Center."
-            Disconnect-IPPSSession
+            Disconnect-ExchangeOnline
         }
         else {
             Write-Output "Not disconnecting from the Security & Compliance Center."
