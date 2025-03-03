@@ -59,6 +59,17 @@ List of sites having 'too-many-users', as of report generation time, to setup an
 
     This example will generate reports for all entities with the default parameters and disconnect from SharePoint Online after the report collection is completed.
 
+## EXAMPLE 9
+    C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -LoggingDirectory "C:\Logs" -LoggingFilename "SamReportingLogs.txt"
+
+    This example will generate reports for all entities with the default parameters and save the log file to "C:\Logs\SamReportingLogs.txt".
+
+## EXAMPLE 10
+    C:\PS> SAMR -TenantDomain contoso -UserPrincipalName Administrator -LoggingDirectory "C:\Logs" -LoggingFilename "SamReportingLogs.txt"
+
+    This example will use the alias 'SAMR' to generate reports for all entities with the default parameters and save the log file to "C:\Logs\SamReportingLogs.txt".
+
 ## NOTES
 - For more information please see: https://learn.microsoft.com/en-us/sharepoint/data-access-governance-reports
 - This script will install both the Microsoft.Online.SharePoint.PowerShell and ExchangeOnlineManagement modules if they are not installed.
+- Default logging directory is c:\users\username\Documents\SamReportingLogs.txt
