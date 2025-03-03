@@ -188,47 +188,46 @@ function Start-SPOSAMReportCollection {
     [Alias('SAMR')]
     param
     (
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Check for sensitivity labels on files in the site. This will make a connection to the Security & Compliance Center to retrieve labels.')]
         [switch]
         $CheckSensitivityLabel,
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the threshold of oversharing as defined by the number of users that can access the site. The number of users that can access the site are determined by expanding all users, groups across all permissions (at site level and at the level of any item with unique permissions), deduplicate and arrive at a unique number. Minimum value is 0.')]
         [Int]
         $CountOfUsersMoreThan = 0,
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Disconnect from SharePoint Online after the report collection is completed. Default is $false.')]
         [switch]
         $DisconnectFromSPO,
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the directory to save the log file to. Default is $env:MyDocuments\SamReporting.')]
         [string]
         $LoggingDirectory = (Join-Path -Path ([Environment]::GetFolderPath("MyDocuments")) -ChildPath "SamReporting"),
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the filename to save the log file to. Default is SamReportingLogs.txt.')]
         [string]
         $LoggingFilename = "SamReportingLogs.txt",
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the privacy setting of the Microsoft 365 group. Relevant in case of filtering the report for group connected sites. Valid values are: All, Private and Public. Default = All.')]
         [ValidateSet('All', 'Private', 'Public')]
-        [string]
         $Privacy = 'All',
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the entity that could cause oversharing and hence tracked by these reports. Valid values are: EveryoneExceptExternalUsersAtSite, EveryoneExceptExternalUsersForItems, SharingLinks_Anyone, SharingLinks_PeopleInYourOrg, SharingLinks_Guests, SensitivityLabelForFiles, PermissionedUsers.')]
         [ValidateSet('EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')]
         [string]
         $ReportEntity,
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the time period of data based on which DAG report is generated. A [Snapshot] report will have the latest data as of the report generation time. A [RecentActivity] report will be based on data in the last 28 days. Default = RecentActivity.')]
         [ValidateSet('Snapshot', 'RecentActivity')]
         [string]
         $ReportType = 'RecentActivity',
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the template of the site. Relevant in case a report should be generated for that particular template. Valid values are: AllSites, ClassicSites, CommunicationSites, TeamSites, and OtherSites.')]
         [ValidateSet('AllSites', 'ClassicSites', 'CommunicationSites', 'TeamSites', 'OtherSites')]
         [string]
         $Template,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'Default')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Default', HelpMessage = 'Specifies the domain of the tenant. This parameter is mandatory.')]
         [string]
         $TenantDomain,
 
@@ -236,12 +235,12 @@ function Start-SPOSAMReportCollection {
         [string]
         $TenantAdminUrl = "https://$TenantDomain-admin.sharepoint.com",
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the workload for which the report should be generated. Valid values are [SharePoint] and [OneDriveForBusiness]. Default = SharePoint.')]
         [ValidateSet('SharePoint', 'OneDriveForBusiness')]
         [string]
         $Workload = "SharePoint",
 
-        [Parameter(ParameterSetName = 'Default')]
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the username for authentication to the Security and Compliance Center.')]
         [string]
         $UserPrincipalName
     )
