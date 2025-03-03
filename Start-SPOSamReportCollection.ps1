@@ -1,4 +1,63 @@
-﻿function Start-SPOSAMReportCollection {
+﻿﻿function Write-ToLog {
+    <#
+        .SYNOPSIS
+            Save output
+
+        .DESCRIPTION
+            Overload function for Write-Output
+
+        .PARAMETER LoggingDirectory
+            Directory to save the log file to. Default is "$env:temp".
+
+        .PARAMETER LoggingFilename
+            Filename to save the log file to. Default is "SamReportingLogs.txt".
+
+        .EXAMPLE
+            None
+
+        .NOTES
+            None
+    #>
+
+    [OutputType('System.String')]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
+    param
+    (
+        [Parameter(ParameterSetName = 'Default')]
+        [string]
+        $LoggingDirectory,
+
+        [string]
+        $LoggingFilename,
+
+        [Parameter(Mandatory = $True, Position = 0)]
+        [string]
+        $InputString
+    )
+
+    try {
+        if (-NOT(Test-Path -Path $LoggingDirectory)) {
+            Write-Verbose "Creating New Logging Directory"
+            New-Item -Path $LoggingDirectory -ItemType Directory -ErrorAction Stop | Out-Null
+        }
+    }
+    catch {
+        Write-Output "$_"
+        return
+    }
+
+    try {
+        # Console and log file output
+        $stringObject = "[{0:MM/dd/yy} {0:HH:mm:ss}] - {1}" -f (Get-Date), $InputString
+        Add-Content -Path (Join-Path $LoggingDirectory -ChildPath $LoggingFilename) -Value $stringObject -Encoding utf8 -ErrorAction Stop
+    }
+    catch {
+        Write-Output "$_"
+        return
+    }
+}
+
+function Start-SPOSAMReportCollection {
     <#
         .SYNOPSIS
             Starts the SharePoint Online Security and Access Management (SAM) report collection.
@@ -25,6 +84,12 @@
 
         .PARAMETER DisconnectFromSPO
             A switch parameter that, if specified, will disconnect from SharePoint Online after the report collection is completed.
+
+        .PARAMETER LoggingDirectory
+            Directory to save the log file to. Default is "$env:temp\Logging".
+
+        .PARAMETER LoggingFilename
+            Filename to save the log file to. Default is "SamReportingLogs.txt".
 
         .PARAMETER Privacy
             Specifies the privacy setting of the Microsoft 365 group. Relevant in case of filtering the report for group connected sites.
@@ -108,7 +173,9 @@
             For more information please see: https://learn.microsoft.com/en-us/sharepoint/data-access-governance-reports
     #>
 
+    [OutputType('System.String')]
     [CmdletBinding(DefaultParameterSetName = 'Default')]
+    [Alias('SAMR')]
     param
     (
         [Parameter(ParameterSetName = 'Default')]
@@ -122,6 +189,14 @@
         [Parameter(ParameterSetName = 'Default')]
         [switch]
         $DisconnectFromSPO,
+
+        [Parameter(ParameterSetName = 'Default')]
+        [string]
+        $LoggingDirectory = (Join-Path -Path ([Environment]::GetFolderPath("MyDocuments")) -ChildPath "SamReporting"),
+
+        [Parameter(ParameterSetName = 'Default')]
+        [string]
+        $LoggingFilename = "SamReportingLogs.txt",
 
         [Parameter(ParameterSetName = 'Default')]
         [ValidateSet('All', 'Private', 'Public')]
@@ -166,7 +241,11 @@
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentUser)
     if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Output "This script must be run as an administrator."
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "This script must be run as an administrator."
         return
+    }
+    else {
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Starting script execution as administrator."
     }
 
     # Save parameters to a hashtable
@@ -182,29 +261,35 @@
                 # Install the module
                 Install-Module -Name $module -Force -AllowClobber -ErrorAction SilentlyContinue
                 Write-Verbose "Installed $module module."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Installed $module module."
             }
             else {
                 Write-Verbose "$module module already installed."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "$module module already installed."
             }
 
             # Import the module
             if ($module -eq "ExchangeOnlineManagement" -and (Get-Module -Name $module -ListAvailable).Version -eq [version]"1.0.0.0") {
                 Remove-Module -Name $module -Force -ErrorAction SilentlyContinue
                 Write-Verbose "Removed ExchangeOnlineManagement module version 1.0.0.0."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Removed ExchangeOnlineManagement module version 1.0.0.0"
             }
 
             if (-not (Get-Module -Name $module)) {
                 if ($PSVersionTable.PSEdition -eq "Core" -and $module -eq "Microsoft.Online.SharePoint.PowerShell") {
                     Import-Module -Name $module -UseWindowsPowerShell -ErrorAction SilentlyContinue
                     Write-Verbose "Connecting with Windows PowerShell Core Version for $module."
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connecting with Windows PowerShell Core Version for $module."
                 }
                 else {
                     Import-Module -Name $module -ErrorAction SilentlyContinue
                     Write-Verbose "Connecting with Windows PowerShell Desktop Version for $module."
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connecting with Windows PowerShell Desktop Version for $module."
                 }
             }
             else {
                 Write-Verbose "$module module already imported."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "$module module already imported."
             }
         }
         catch {
@@ -216,14 +301,18 @@
     # Check connection to SharePoint Online
     try {
         Write-Verbose "Checking for prior connection to SharePoint Online."
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Checking for prior connection to SharePoint Online."
         $connection = Get-SPOTenant -ErrorAction SilentlyContinue
         if (-not $connection) {
             Write-Output "Not connected to SharePoint Online. Attempting to connect to SharePoint Online"
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Not connected to SharePoint Online. Attempting to connect to SharePoint Online"
             Connect-SPOService -Url $TenantAdminUrl -ErrorAction SilentlyContinue
             Write-Output "Connected to SharePoint Online."
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connected to SharePoint Online."
         }
         else {
-            Write-Verbose "Connected to SharePoint Online."
+            Write-Verbose "Already Connected to SharePoint Online."
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Already Connected to SharePoint Online."
         }
     }
     catch {
@@ -243,11 +332,13 @@
         foreach ($entity in $reportEntities) {
             if ($ReportType -eq "Snapshot" -and $entity -ne "PermissionedUsers" -and $entity -ne "SensitivityLabelForFiles") {
                 Write-Output "WARNING: ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "WARNING: ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
                 return
             }
 
             if ($entity -eq "SensitivityLabelForFiles" -and ($Workload -eq "SharePoint" -or $Workload -eq "OneDriveForBusiness") -and $ReportType -eq "RecentActivity") {
                 Write-Output "WARNING: ReportType 'RecentActivity' with ReportEntity 'SensitivityLabelForFiles' entity with 'SharePoint' workload at this time."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "WARNING: ReportType 'RecentActivity' with ReportEntity 'SensitivityLabelForFiles' entity with 'SharePoint' workload at this time."
                 return
             }
 
@@ -257,15 +348,20 @@
                     $UserPrincipalName = Read-Host "UserPrincipalName is required to connect to the Security & Compliance Center.`nPlease enter the UserPrincipalName"
                     if (-not $UserPrincipalName) {
                         Write-Output "UserPrincipalName not provided. Exiting."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "UserPrincipalName not provideed. Exiting."
                         $disconnectFromSCC = $true
                         return
                     }
                 }
 
                 Write-Output "Connecting to the Security & Compliance Center."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connecting to the Security & Compliance Center."
                 Connect-IPPSSession -UserPrincipalName $UserPrincipalName -ShowBanner:$False -ErrorAction Stop
                 Write-Output "Connected to the Security & Compliance Center. Obtaining labels from the Security & Compliance Center."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connected to the Security & Compliance Center. Obtaining labels from the Security & Compliance Center."
                 $labels = Get-Label | Select-Object DisplayName, GUID -ErrorAction Stop
+                Write-Verbose "Got labels from the Security & Compliance Center."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Got labels from the Security & Compliance Center."
 
                 do {
                     $labelMenu = $labels | ForEach-Object { "$($labels.IndexOf($_) + 1). $($_.DisplayName) - $($_.GUID)" }
@@ -274,23 +370,28 @@
 
                     if ($selection -eq 'c') {
                         Write-Output "Operation cancelled by user."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Operation cancelled by user."
                         return
                     }
                     $selectedLabel = $labels[$selection - 1]
                 } while (-not $selectedLabel)
 
                 Write-Verbose "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
                 Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
                 $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName)
                 if ($($report.ReportID)) { $reportGenerated = $true }
             }
             else {
                 if ($Template) {
                     $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - Template: $($Template) has been generated."
                     if ($($report.ReportID)) { $reportGenerated = $true }
                 }
                 else {
                     $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
                     if ($($report.ReportID)) { $reportGenerated = $true }
                 }
             }
@@ -298,7 +399,9 @@
             # End user notifications
             if ($reportGenerated -eq $true) {
                 Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
                 Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
             }
         }
     }
@@ -309,18 +412,26 @@
         # Disconnect from Security & Compliance Center if connected
         if ($CheckSensitivityLabel -or $disconnectFromSCC) {
             Write-Output "Disconnecting from the Security & Compliance Center."
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Disconnecting from the Security & Compliance Center."
             Disconnect-ExchangeOnline
         }
         else {
             Write-Output "Not disconnecting from the Security & Compliance Center."
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Not disconnecting from the Security & Compliance Center."
         }
 
         if ($DisconnectFromSPO -eq $True) {
             Write-Output "Disconnecting from the SPOService."
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Disconnecting from the SPOService."
             Disconnect-SPOService
         }
         else {
             Write-Output "Not disconnecting from the SPOService."
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Not disconnecting from the SPOService."
         }
+
+        Write-Output "For more information please see the logging file: $($LoggingDirectory)\$($LoggingFilename)"
+        Write-Output "Script completed."
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Script completed."
     }
 }
