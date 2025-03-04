@@ -213,7 +213,7 @@ function Start-SPOSAMReportCollection {
         $Privacy = 'All',
 
         [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the entity that could cause oversharing and hence tracked by these reports. Valid values are: EveryoneExceptExternalUsersAtSite, EveryoneExceptExternalUsersForItems, SharingLinks_Anyone, SharingLinks_PeopleInYourOrg, SharingLinks_Guests, SensitivityLabelForFiles, PermissionedUsers.')]
-        [ValidateSet('EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')]
+        [ValidateSet('All', 'EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')]
         [string]
         $ReportEntity,
 
@@ -257,9 +257,11 @@ function Start-SPOSAMReportCollection {
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Starting script execution as administrator."
     }
 
-    # Save parameters to a hashtable
+    $script:generateAllReports = $false
     $script:reportGenerated = $false
+    $script:numOfReportsGenerated = 0
     $script:disconnectFromSCC = $false
+    # Save parameters to a hashtable
     $script:parameters = $PSBoundParameters
     $modules = @('Microsoft.Online.SharePoint.PowerShell', 'ExchangeOnlineManagement')
 
@@ -330,79 +332,105 @@ function Start-SPOSAMReportCollection {
     }
 
     try {
-        if ($ReportEntity) {
-            $reportEntities = $ReportEntity
+        if ($ReportEntity -eq 'All') {
+            $script:generateAllReports = $true
+            $reportEntities = @('EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')
         }
         else {
-            $reportEntities = @('EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')
+            $reportEntities = @($ReportEntity)
         }
 
         # Build reports
         foreach ($entity in $reportEntities) {
-            if ($ReportType -eq "Snapshot" -and $entity -ne "PermissionedUsers" -and $entity -ne "SensitivityLabelForFiles") {
-                Write-Output "WARNING: ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "WARNING: ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
-                return
-            }
+            Write-Output "`r`nGenerating report for $($entity)"
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Generating report for $($entity)"
+            try {
+                if ($ReportType -eq "Snapshot" -and $entity -ne "PermissionedUsers" -and $entity -ne "SensitivityLabelForFiles" -and $generateAllReports -eq $true) {
+                    Write-Output "WARNING: ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "WARNING: ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
+                    if ($generateAllReports -eq $true) { continue } else { if ($reportEntities.Count -eq 1) { return } }
+                }
 
-            if ($entity -eq "SensitivityLabelForFiles" -and ($Workload -eq "SharePoint" -or $Workload -eq "OneDriveForBusiness") -and $ReportType -eq "RecentActivity") {
-                Write-Output "WARNING: ReportType 'RecentActivity' with ReportEntity 'SensitivityLabelForFiles' entity with 'SharePoint' workload at this time."
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "WARNING: ReportType 'RecentActivity' with ReportEntity 'SensitivityLabelForFiles' entity with 'SharePoint' workload at this time."
-                return
-            }
+                if ($entity -eq "SensitivityLabelForFiles" -and ($Workload -eq "SharePoint" -or $Workload -eq "OneDriveForBusiness") -and $ReportType -eq "RecentActivity") {
+                    Write-Output "WARNING: To run ReportType 'SensitivityLabelForFiles' ReportType must be set to 'SnapShot'."
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "WARNING: To run ReportType 'SensitivityLabelForFiles' ReportType must be set to 'SnapShot'."
+                    if ($generateAllReports -eq $true) { continue } else { if ($reportEntities.Count -eq 1) { return } }
+                }
 
-            # Check for sensitivity labels if specified.
-            if ($entity -eq "SensitivityLabelForFiles" -and $CheckSensitivityLabel) {
-                if (-not $UserPrincipalName) {
-                    $UserPrincipalName = Read-Host "UserPrincipalName is required to connect to the Security & Compliance Center.`nPlease enter the UserPrincipalName"
+                # Check for sensitivity labels if specified.
+                if ($entity -eq "SensitivityLabelForFiles" -and $CheckSensitivityLabel) {
                     if (-not $UserPrincipalName) {
-                        Write-Output "UserPrincipalName not provided. Exiting."
-                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "UserPrincipalName not provideed. Exiting."
-                        $disconnectFromSCC = $true
-                        return
+                        $UserPrincipalName = Read-Host "UserPrincipalName is required to connect to the Security & Compliance Center.`nPlease enter the UserPrincipalName"
+                        if (-not $UserPrincipalName) {
+                            Write-Output "UserPrincipalName not provided. Exiting."
+                            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "UserPrincipalName not provided. Exiting."
+                            $disconnectFromSCC = $true
+                            if ($generateAllReports -eq $true) { continue } else { if ($reportEntities.Count -eq 1) { return } }
+                        }
+                    }
+
+                    Write-Output "Connecting to the Security & Compliance Center."
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connecting to the Security & Compliance Center."
+                    Connect-IPPSSession -UserPrincipalName $UserPrincipalName -ShowBanner:$False -ErrorAction Stop
+                    Write-Output "Connected to the Security & Compliance Center. Obtaining labels from the Security & Compliance Center."
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connected to the Security & Compliance Center. Obtaining labels from the Security & Compliance Center."
+                    Write-Verbose "Getting labels from the Security & Compliance Center."
+                    $labels = Get-Label | Select-Object DisplayName, GUID -ErrorAction Stop
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Retrieved labels from the Security & Compliance Center."
+
+                    do {
+                        $labelMenu = $labels | ForEach-Object { "$($labels.IndexOf($_) + 1). $($_.DisplayName) - $($_.GUID)" }
+                        $labelMenu | ForEach-Object { Write-Output $_ }
+                        $selection = Read-Host "Select a label by entering the corresponding number or type 'c' to cancel"
+
+                        if ($selection -eq 'c') {
+                            Write-Output "Operation cancelled by user."
+                            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Operation cancelled by user."
+                            if ($generateAllReports -eq $true) { continue } else { if ($reportEntities.Count -eq 1) { return } }
+                        }
+                        $selectedLabel = $labels[$selection - 1]
+                    } while (-not $selectedLabel)
+
+                    Write-Verbose "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
+                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
+                    $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName)
+                    if ($($report.ReportID)) {
+                        Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
+                        $reportGenerated = $true
+                        $numOfReportsGenerated ++
+                    }
+                }
+                else {
+                    if ($generateAllReports -eq $true -and $entity -eq "SensitivityLabelForFiles") {
+                        Write-Output "WARNING: To generate a report for SensitivityLabels, the CheckSensitivityLabel flag must be True."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "WARNING: To generate a report for SensitivityLabels, the ReportEntity 'SensitivityLabelForFiles' and the CheckSensitivityLabel flag must be True."
+                        break
                     }
                 }
 
-                Write-Output "Connecting to the Security & Compliance Center."
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connecting to the Security & Compliance Center."
-                Connect-IPPSSession -UserPrincipalName $UserPrincipalName -ShowBanner:$False -ErrorAction Stop
-                Write-Output "Connected to the Security & Compliance Center. Obtaining labels from the Security & Compliance Center."
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connected to the Security & Compliance Center. Obtaining labels from the Security & Compliance Center."
-                $labels = Get-Label | Select-Object DisplayName, GUID -ErrorAction Stop
-                Write-Verbose "Got labels from the Security & Compliance Center."
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Got labels from the Security & Compliance Center."
-
-                do {
-                    $labelMenu = $labels | ForEach-Object { "$($labels.IndexOf($_) + 1). $($_.DisplayName) - $($_.GUID)" }
-                    $labelMenu | ForEach-Object { Write-Output $_ }
-                    $selection = Read-Host "Select a label by entering the corresponding number or type 'c' to cancel"
-
-                    if ($selection -eq 'c') {
-                        Write-Output "Operation cancelled by user."
-                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Operation cancelled by user."
-                        return
-                    }
-                    $selectedLabel = $labels[$selection - 1]
-                } while (-not $selectedLabel)
-
-                Write-Verbose "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
-                Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
-                $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName)
-                if ($($report.ReportID)) { $reportGenerated = $true }
-            }
-            else {
+                # Check for template if specified.
                 if ($Template) {
                     $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
                     Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - Template: $($Template) has been generated."
-                    if ($($report.ReportID)) { $reportGenerated = $true }
+                    if ($($report.ReportID)) {
+                        $reportGenerated = $true
+                        $numOfReportsGenerated ++
+                    }
                 }
                 else {
                     $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
                     Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
-                    if ($($report.ReportID)) { $reportGenerated = $true }
+                    if ($($report.ReportID)) {
+                        $reportGenerated = $true
+                        $numOfReportsGenerated ++
+                    }
                 }
+            }
+            catch {
+                Write-Output "Error generating report for $($entity). Each report can only run once every 24 hours."
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Error generating report for $($entity). Each report can only run once every 24 hours."
+                if ($generateAllReports -eq $true) { continue } else { if ($reportEntities.Count -eq 1) { return } }
             }
 
             # End user notifications
@@ -419,6 +447,7 @@ function Start-SPOSAMReportCollection {
     }
     finally {
         # Disconnect from Security & Compliance Center if connected
+        Write-Output "`r`n-----------------------------------------"
         if ($CheckSensitivityLabel -or $disconnectFromSCC) {
             Write-Output "Disconnecting from the Security & Compliance Center."
             Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Disconnecting from the Security & Compliance Center."
@@ -439,7 +468,8 @@ function Start-SPOSAMReportCollection {
             Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Not disconnecting from the SPOService."
         }
 
-        Write-Output "For more information please see the logging file: $($LoggingDirectory)\$($LoggingFilename)"
+        Write-Output "`r`nTotal reports generated: $($script:numOfReportsGenerated)"
+        Write-Output "`r`nFor more information please see the logging file: $($LoggingDirectory)\$($LoggingFilename)"
         Write-Output "Script completed."
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Script completed."
     }
