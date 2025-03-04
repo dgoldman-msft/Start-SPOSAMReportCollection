@@ -245,12 +245,10 @@ function Start-SPOSAMReportCollection {
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Starting script execution as administrator."
     }
 
-    $script:generateAllReports = $false
-    $script:reportGenerated = $false
-    $script:numOfReportsGenerated = 0
-    $script:disconnectFromSCC = $false
-    # Save parameters to a hashtable
-    $script:parameters = $PSBoundParameters
+    $generateAllReports = $false
+    $reportGenerated = $false
+    $numOfReportsGenerated = 0
+    $disconnectFromSCC = $false
     $modules = @('Microsoft.Online.SharePoint.PowerShell', 'ExchangeOnlineManagement')
 
     foreach ($module in $modules) {
@@ -381,10 +379,10 @@ function Start-SPOSAMReportCollection {
 
                     Write-Verbose "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
                     Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Selected Label: $selectedLabel.DisplayName - $selectedLabel.GUID"
-                    $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName)
+                    $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName) -CountOfUsersMoreThan $CountOfUsersMoreThan
                     if ($($report.ReportID)) {
-                        Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
-                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
+                        Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) with CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) with CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
                         $reportGenerated = $true
                         $numOfReportsGenerated ++
                     }
@@ -400,16 +398,18 @@ function Start-SPOSAMReportCollection {
                 # Check for template if specified.
                 if ($Template) {
                     $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
-                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - Template: $($Template) has been generated."
                     if ($($report.ReportID)) {
+                        Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - ReportType $($ReportType) with CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - Template: $($Template) has been generated."
                         $reportGenerated = $true
                         $numOfReportsGenerated ++
                     }
                 }
                 else {
                     $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
-                    Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
                     if ($($report.ReportID)) {
+                        Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - ReportType $($ReportType) with CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
                         $reportGenerated = $true
                         $numOfReportsGenerated ++
                     }
@@ -425,7 +425,6 @@ function Start-SPOSAMReportCollection {
             if ($reportGenerated -eq $true) {
                 Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
                 Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
-                Write-Output "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
                 Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
             }
         }
