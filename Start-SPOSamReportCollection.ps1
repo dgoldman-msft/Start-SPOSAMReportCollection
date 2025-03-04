@@ -129,55 +129,43 @@ function Start-SPOSAMReportCollection {
             Specifies the workload for which the report should be generated. Valid values are 'SharePoint' and 'OneDriveForBusiness'. Default is 'SharePoint'.
 
         .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -CheckSensitivityLabel
+            C:\PS> samr -TenantDomain contoso -ReportEntity All or
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity All
 
-            This example will generate reports for all entities with the default parameters as well as check the sensitivity labels.
+            This example will generate all reports by specifying full function name or alias
+            NOTE: The only report that will not be generated is 'SensitivityLabelForFiles' unless you run the next example.
+            This is intentional as this report requires a connection to the Security & Compliance Center.
+
+        .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator@tenant -CheckSensitivityLabel -ReportType Snapshot
+
+            This example will generate reports for SensitivityLabelForFiles.
             This will connect you to the Security and Compliance Center to read the labels in the tenant.
 
         .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -CountOfUsersMoreThan 100
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity EveryoneExceptExternalUsersAtSite -CountOfUsersMoreThan 100
 
-            This example will generate reports for all entities with the default parameters and a threshold of 100 users.
-
-        .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -Privacy Private
-
-            This example will generate reports for all entities with the default parameters and filter the report for private sites.
+            This example will generate a report for EveryoneExceptExternalUsersAtSite with a threshold of 100 users. Default is 0
 
         .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -ReportEntity SharingLinks_Anyone
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity SharingLinks_Guests -Privacy Private
 
-            This example will generate a report for the 'SharingLinks_Anyone' entity with the default parameters.
-
-        .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -ReportType Snapshot
-
-            This example will generate a snapshot report for all entities with the default parameters.
+            This example will generate reports for SharePoints sites with links for SharingLinks_Guests.
 
         .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -Template TeamSites
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity SharingLinks_Anyone
 
-            This example will generate reports for all entities with the default parameters and filter the report for team sites.
-
-        .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -Workload OneDriveForBusiness
-
-            This example will generate reports for all entities with the default parameters and filter the report for OneDrive for Business.
+            This example will generate a report for SharePoint sites with links for 'SharingLinks_Anyone'.
 
         .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -DisconnectFromSPO
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -Workload OneDriveForBusiness
 
-            This example will generate reports for all entities with the default parameters and disconnect from SharePoint Online after the report collection is completed.
-
-        .EXAMPLE
-            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator -LoggingDirectory "C:\Logs" -LoggingFilename "SamReportingLogs.txt"
-
-            This example will generate reports for all entities with the default parameters and save the log file to "C:\Logs\SamReportingLogs.txt".
+            This example will generate reports for a filtered the report for OneDrive for Business.
 
         .EXAMPLE
-            C:\PS> SAMR -TenantDomain contoso -UserPrincipalName Administrator -LoggingDirectory "C:\Logs" -LoggingFilename "SamReportingLogs.txt"
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -LoggingDirectory "C:\Logs" -LoggingFilename "SamReportingLogs.txt"
 
-            This example will use the alias 'SAMR' to generate reports for all entities with the default parameters and save the log file to "C:\Logs\SamReportingLogs.txt".
+            This example will generate reports by saving the log file to "C:\Logs\SamReportingLogs.txt".
 
         .NOTES
             For more information please see: https://learn.microsoft.com/en-us/sharepoint/data-access-governance-reports
