@@ -405,6 +405,17 @@ function Start-SPOSAMReportCollection {
                         $numOfReportsGenerated ++
                     }
                 }
+
+                # PermissionedUsers report needs to have ReportType set to Snapshot
+                if ($entity -eq "PermissionedUsers") {
+                    $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType "Snapshot" -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                    if ($($report.ReportID)) {
+                        Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - ReportType Snapshot with CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: "Snapshot" - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
+                        $reportGenerated = $true
+                        $numOfReportsGenerated ++
+                    }
+                }
                 else {
                     $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
                     if ($($report.ReportID)) {
@@ -416,17 +427,17 @@ function Start-SPOSAMReportCollection {
                 }
             }
             catch {
-                Write-Output "Error generating report for $($entity). Each report can only run once every 24 hours."
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Error generating report for $($entity). Each report can only run once every 24 hours."
+                Write-Output "Generating report for $($entity) failed. $($_.Exception.Message)"
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Error generating report for $($entity). $($_.Exception.Message)"
                 if ($generateAllReports -eq $true) { continue } else { if ($reportEntities.Count -eq 1) { return } }
             }
+        }
 
-            # End user notifications
-            if ($reportGenerated -eq $true) {
-                Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
-                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
-            }
+        # End user notifications
+        if ($reportGenerated -eq $true) {
+            Write-Output "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "To check the status of this report please run: Get-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)`nTo download this report please run: Export-SPODataAccessGovernanceInsight -ReportID $($report.ReportID)"
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
         }
     }
     catch {
@@ -455,7 +466,7 @@ function Start-SPOSAMReportCollection {
             Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Not disconnecting from the SPOService."
         }
 
-        Write-Output "`r`nTotal reports generated: $($script:numOfReportsGenerated)"
+        Write-Output "`r`nTotal reports generated: $($numOfReportsGenerated)"
         Write-Output "`r`nFor more information please see the logging file: $($LoggingDirectory)\$($LoggingFilename)"
         Write-Output "Script completed."
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Script completed."
