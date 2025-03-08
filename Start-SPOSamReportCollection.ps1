@@ -57,6 +57,35 @@
     }
 }
 
+function Get-ReportDescription {
+    <#
+        .SYNOPSIS
+            Retrieves the description of a specified report entity.
+
+        .DESCRIPTION
+            The Get-ReportDescription function searches through an array of descriptions and returns the description that matches the specified report entity.
+
+        .PARAMETER reportEntity
+            The name or part of the name of the report entity to search for in the description array.
+
+        .EXAMPLE
+            PS C:\> Get-ReportDescription -reportEntity "Sales"
+
+            This command retrieves the description for the report entity that contains "Sales" in its description.
+
+        .NOTES
+            The function uses the -like operator to perform a wildcard search for the report entity within the description array.
+    #>
+
+    [OutputType('System.String')]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
+    [Alias('SAMR')]
+    param (
+        [string] $reportEntity
+    )
+    return $descriptionArray | Where-Object { $_ -like "*$reportEntity*" }
+}
+
 function Start-SPOSAMReportCollection {
     <#
         .SYNOPSIS
@@ -233,6 +262,29 @@ function Start-SPOSAMReportCollection {
         $UserPrincipalName
     )
 
+    $generateAllReports = $false
+    $reportGenerated = $false
+    $numOfReportsGenerated = 0
+    $disconnectFromSCC = $false
+    $modules = @('Microsoft.Online.SharePoint.PowerShell', 'ExchangeOnlineManagement')
+
+    $descriptionArray = @(
+        "PermissionedUsers - Report for sites that have shared content with permissioned users in last 28 days.",
+        "EveryoneExceptExternalUsersAtSite - Report for sites that have shared content with Everyone except external users (EEEU) in last 28 days.",
+        "EveryoneExceptExternalUsersForItems - Report for files, folders or lists that have shared content with Everyone except external users (EEEU) in last 28 days.",
+        "SharingLinks_Anyone - Report for sites that have shared content with Anyone in last 28 days.",
+        "SharingLinks_PeopleInYourOrg - Report for sites that have shared content with People in your organization in last 28 days.",
+        "SharingLinks_Guests - Report for sites that have shared content with Guests in last 28 days.",
+        "SensitivityLabelForFiles - Report for sites that have files with sensitivity labels."
+    )
+
+    function Get-ReportDescription {
+        param (
+            [string] $reportEntity
+        )
+        return $descriptionArray | Where-Object { $_ -like "*$reportEntity*" }
+    }
+
     # Check if running as administrator
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentUser)
@@ -244,12 +296,6 @@ function Start-SPOSAMReportCollection {
     else {
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Starting script execution as administrator."
     }
-
-    $generateAllReports = $false
-    $reportGenerated = $false
-    $numOfReportsGenerated = 0
-    $disconnectFromSCC = $false
-    $modules = @('Microsoft.Online.SharePoint.PowerShell', 'ExchangeOnlineManagement')
 
     foreach ($module in $modules) {
         try {
@@ -328,8 +374,9 @@ function Start-SPOSAMReportCollection {
 
         # Build reports
         foreach ($entity in $reportEntities) {
-            Write-Output "`r`nGenerating report for $($entity)"
-            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Generating report for $($entity)"
+            Write-Output "`r`nGenerating report for $(Get-ReportDescription -reportEntity $entity)"
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "`r`nGenerating report for $(Get-ReportDescription -reportEntity $entity)"
+
             try {
                 if ($ReportType -eq "Snapshot" -and $entity -ne "PermissionedUsers" -and $entity -ne "SensitivityLabelForFiles" -and $generateAllReports -eq $true) {
                     Write-Output "WARNING: ReportType 'Snapshot' is only valid for 'PermissionedUsers' and 'SensitivityLabelForFiles' entities."
@@ -382,7 +429,7 @@ function Start-SPOSAMReportCollection {
                     $report = Start-SPODataAccessGovernanceInsight -ReportEntity SensitivityLabelForFiles -Workload $Workload -ReportType $ReportType -FileSensitivityLabelGUID $($selectedLabel.GUID) -FileSensitivityLabelName $($selectedLabel.DisplayName) -CountOfUsersMoreThan $CountOfUsersMoreThan
                     if ($($report.ReportID)) {
                         Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) with CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
-                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) with CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - FileSensitivityLabelGUID: $($selectedLabel.GUID) - FileSensitivityLabelName: $($selectedLabel.DisplayName) has been generated."
                         $reportGenerated = $true
                         $numOfReportsGenerated ++
                     }
@@ -399,7 +446,7 @@ function Start-SPOSAMReportCollection {
                 if ($Template) {
                     $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
                     if ($($report.ReportID)) {
-                        Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - ReportType $($ReportType) with CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
+                        Write-Output "Report for $($entity) with ReportID: $($report.ReportID) ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan $($CountOfUsersMoreThan) has been generated."
                         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - Template: $($Template) has been generated."
                         $reportGenerated = $true
                         $numOfReportsGenerated ++
