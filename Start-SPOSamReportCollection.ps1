@@ -433,7 +433,7 @@ function Start-SPOSAMReportCollection {
 
                 # Check for template if specified.
                 if ($Template) {
-                    $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                    $report = Start-SPODataAccessGovernanceInsight -Name $entity -ReportEntity $entity -Workload $Workload -ReportType $ReportType -Template $Template -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
                     if ($($report.ReportID)) {
                         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) - Template: $($Template) has been generated."
                         $reportGenerated = $true
@@ -443,15 +443,15 @@ function Start-SPOSAMReportCollection {
 
                 # PermissionedUsers report needs to have ReportType set to Snapshot
                 if ($entity -eq "PermissionedUsers") {
-                    $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType "Snapshot" -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                    $report = Start-SPODataAccessGovernanceInsight -Name $entity -ReportEntity $entity -Workload $Workload -ReportType Snapshot -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
                     if ($($report.ReportID)) {
-                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: "Snapshot" - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
+                        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: Snapshot - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
                         $reportGenerated = $true
                         $numOfReportsGenerated ++
                     }
                 }
                 else {
-                    $report = Start-SPODataAccessGovernanceInsight -Name "$entity" -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
+                    $report = Start-SPODataAccessGovernanceInsight -Name $entity -ReportEntity $entity -Workload $Workload -ReportType $ReportType -CountOfUsersMoreThan $CountOfUsersMoreThan -ErrorAction Stop
                     if ($($report.ReportID)) {
                         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Report for $($entity) with ReportType: $($ReportType) - Workload: $($Workload) - CountOfUsersMoreThan of $($CountOfUsersMoreThan) has been generated."
                         $reportGenerated = $true
