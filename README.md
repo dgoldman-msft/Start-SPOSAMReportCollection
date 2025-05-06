@@ -19,7 +19,7 @@ List of sites having 'too-many-users', as of report generation time, to setup an
 3. Run one of the examples below and allow for tab completion to see all of the available options
 
 ## <span style="color:red">ADVISORY</span>
-    Currently SharePoint Advanced Management is rolling out to customer world wide and should be done by the end of May. If you do not see any options as far as blue links in the SharePoint portal under SharePoint Advanced Management [PRO] or have at least one SharePoint Advanced Management license installed the reports will not run. The output will either be blank or return a 400 error code.
+Currently SharePoint Advanced Management is rolling out to customer world wide and should be done by the end of May. If you do not see any options as far as blue links in the SharePoint portal under SharePoint Advanced Management [PRO] or have at least one SharePoint Advanced Management license installed the reports will not run. The output will either be blank or return a 400 error code.
 
 ## EXAMPLE 1
     C:\PS> samr -TenantDomain contoso -ReportEntity All or
