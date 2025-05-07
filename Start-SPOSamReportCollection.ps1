@@ -343,7 +343,7 @@ function Start-SPOSAMReportCollection {
 
     # Connection to SharePoint Online
     try {
-        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Checking for prior connection to SharePoint Online."
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connecting to SharePoint Online."
         Connect-SPOService -Url $TenantAdminUrl -ErrorAction SilentlyContinue
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connected to SharePoint Online."
     }
