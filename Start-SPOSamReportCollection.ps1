@@ -1,4 +1,4 @@
-﻿﻿function Write-ToLog {
+﻿function Write-ToLog {
     <#
         .SYNOPSIS
             Save output
@@ -57,7 +57,6 @@
         return
     }
 }
-
 function Get-ReportDescription {
     <#
         .SYNOPSIS
