@@ -51,7 +51,8 @@
         Write-Output "$($InputString)"
         $stringObject = "[{0:MM/dd/yy} {0:HH:mm:ss}] - {1}" -f (Get-Date), $InputString
         Add-Content -Path (Join-Path $LoggingDirectory -ChildPath $LoggingFilename) -Value $stringObject -Encoding utf8 -ErrorAction Stop
-        Write-Verbose "Logging to $($LoggingDirectory)\$($LoggingFilename)"}
+        Write-Verbose "Logging to $($LoggingDirectory)\$($LoggingFilename)"
+    }
     catch {
         Write-Output "$_"
         return
@@ -340,20 +341,11 @@ function Start-SPOSAMReportCollection {
         }
     }
 
-    # Check connection to SharePoint Online
+    # Connection to SharePoint Online
     try {
-        Write-Verbose "Checking for prior connection to SharePoint Online."
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Checking for prior connection to SharePoint Online."
-        $connection = Get-SPOTenant -ErrorAction SilentlyContinue
-        if (-not $connection) {
-            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Not connected to SharePoint Online. Attempting to connect to SharePoint Online"
-            Connect-SPOService -Url $TenantAdminUrl -ErrorAction SilentlyContinue
-            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connected to SharePoint Online."
-        }
-        else {
-            Write-Verbose "Already Connected to SharePoint Online."
-            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Already Connected to SharePoint Online."
-        }
+        Connect-SPOService -Url $TenantAdminUrl -ErrorAction SilentlyContinue
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Connected to SharePoint Online."
     }
     catch {
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Error: $_"
