@@ -22,6 +22,11 @@ List of sites having 'too-many-users', as of report generation time, to setup an
 Currently SharePoint Advanced Management is rolling out to customer world wide and should be done by the end of May. If you do not see any options as far as blue links in the SharePoint portal under SharePoint Advanced Management [PRO] or have at least one SharePoint Advanced Management license installed the reports will not run. The output will either be blank or return a 400 error code.
 
 ## EXAMPLE 1
+    C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -InvokeActivityInsightAuditing
+
+    This example will start SPOAuditDataCollectionForActivityInsights reports.
+
+## EXAMPLE 2
     C:\PS> samr -TenantDomain contoso -ReportEntity All or
     C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity All
 
@@ -29,33 +34,33 @@ Currently SharePoint Advanced Management is rolling out to customer world wide a
     NOTE: The only report that will not be generated is 'SensitivityLabelForFiles' unless you run the next example.
     This is intentional as this report requires a connection to the Security & Compliance Center.
 
-## EXAMPLE 2
+## EXAMPLE 3
     C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator@tenant -CheckSensitivityLabel -ReportType Snapshot
 
     This example will generate reports for SensitivityLabelForFiles.
     This will connect you to the Security and Compliance Center to read the labels in the tenant.
 
-## EXAMPLE 3
+## EXAMPLE 4
     C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity EveryoneExceptExternalUsersAtSite -CountOfUsersMoreThan 100
 
     This example will generate a report for EveryoneExceptExternalUsersAtSite with a threshold of 100 users. Default is 0
 
-## EXAMPLE 4
+## EXAMPLE 5
     C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity SharingLinks_Guests -Privacy Private
 
     This example will generate reports for SharePoints sites with links for SharingLinks_Guests.
 
-## EXAMPLE 5
+## EXAMPLE 6
     C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity SharingLinks_Anyone
 
     This example will generate a report for SharePoint sites with links for 'SharingLinks_Anyone'.
 
-## EXAMPLE 6
+## EXAMPLE 7
     C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -Workload OneDriveForBusiness
 
     This example will generate reports for a filtered the report for OneDrive for Business.
 
-## EXAMPLE 6
+## EXAMPLE 8
     C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -LoggingDirectory "C:\Logs" -LoggingFilename "SamReportingLogs.txt"
 
     This example will generate reports by saving the log file to "C:\Logs\SamReportingLogs.txt".

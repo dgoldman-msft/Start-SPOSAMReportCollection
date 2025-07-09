@@ -49,6 +49,9 @@
     try {
         # Console and log file output
         Write-Output "$($InputString)"
+        if ($InputString -match "administrator") {
+            Add-Content -Path (Join-Path $LoggingDirectory -ChildPath $LoggingFilename) -Value "`r`n" -Encoding utf8 -ErrorAction Stop
+        }
         $stringObject = "[{0:MM/dd/yy} {0:HH:mm:ss}] - {1}" -f (Get-Date), $InputString
         Add-Content -Path (Join-Path $LoggingDirectory -ChildPath $LoggingFilename) -Value $stringObject -Encoding utf8 -ErrorAction Stop
         Write-Verbose "Logging to $($LoggingDirectory)\$($LoggingFilename)"
@@ -115,6 +118,9 @@ function Start-SPOSAMReportCollection {
         .PARAMETER DisconnectFromSPO
             A switch parameter that, if specified, will disconnect from SharePoint Online after the report collection is completed.
 
+        .PARAMETER InvokeActivityInsightAuditing
+            A switch parameter that, if specified, will invoke auditing for the report.
+
         .PARAMETER LoggingDirectory
             Directory to save the log file to. Default is "$env:temp\Logging".
 
@@ -159,46 +165,53 @@ function Start-SPOSAMReportCollection {
             Specifies the workload for which the report should be generated. Valid values are 'SharePoint' and 'OneDriveForBusiness'. Default is 'SharePoint'.
 
         .EXAMPLE
+            C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -InvokeActivityInsightAuditing
+
+            This will start SPOAuditDataCollectionForActivityInsights reports.
+
+        .EXAMPLE
             C:\PS> samr -TenantDomain contoso -ReportEntity All or
             C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity All
 
-            This example will generate all reports by specifying full function name or alias
+            This will generate all reports by specifying full function name or alias
             NOTE: The only report that will not be generated is 'SensitivityLabelForFiles' unless you run the next example.
             This is intentional as this report requires a connection to the Security & Compliance Center.
 
         .EXAMPLE
             C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -UserPrincipalName Administrator@tenant -CheckSensitivityLabel -ReportType Snapshot
 
-            This example will generate reports for SensitivityLabelForFiles.
-            This will connect you to the Security and Compliance Center to read the labels in the tenant.
+            This will generate reports for SensitivityLabelForFiles.
+            This will also connect you to the Security and Compliance Center to read the labels in the tenant.
 
         .EXAMPLE
             C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity EveryoneExceptExternalUsersAtSite -CountOfUsersMoreThan 100
 
-            This example will generate a report for EveryoneExceptExternalUsersAtSite with a threshold of 100 users. Default is 0
+            This will generate a report for EveryoneExceptExternalUsersAtSite with a threshold of 100 users. Default is 0
 
         .EXAMPLE
             C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity SharingLinks_Guests -Privacy Private
 
-            This example will generate reports for SharePoints sites with links for SharingLinks_Guests.
+            This will generate reports for SharePoints sites with links for SharingLinks_Guests.
 
         .EXAMPLE
             C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -ReportEntity SharingLinks_Anyone
 
-            This example will generate a report for SharePoint sites with links for 'SharingLinks_Anyone'.
+            This will generate a report for SharePoint sites with links for 'SharingLinks_Anyone'.
 
         .EXAMPLE
             C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -Workload OneDriveForBusiness
 
-            This example will generate reports for a filtered the report for OneDrive for Business.
+            This will generate reports for a filtered the report for OneDrive for Business.
 
         .EXAMPLE
             C:\PS> Start-SPOSAMReportCollection -TenantDomain contoso -LoggingDirectory "C:\Logs" -LoggingFilename "SamReportingLogs.txt"
 
-            This example will generate reports by saving the log file to "C:\Logs\SamReportingLogs.txt".
+            This will generate reports by saving the log file to "C:\Logs\SamReportingLogs.txt".
 
         .NOTES
-            For more information please see: https://learn.microsoft.com/en-us/sharepoint/data-access-governance-reports
+            For more information please see:
+            https://learn.microsoft.com/en-us/sharepoint/data-access-governance-reports
+            https://learn.microsoft.com/en-us/powershell/module/sharepoint-online/start-spoauditdatacollectionforactivityinsights?view=sharepoint-ps
     #>
 
     [OutputType('System.String')]
@@ -217,6 +230,10 @@ function Start-SPOSAMReportCollection {
         [Parameter(ParameterSetName = 'Default', HelpMessage = 'Disconnect from SharePoint Online after the report collection is completed. Default is $false.')]
         [switch]
         $DisconnectFromSPO,
+
+        [Parameter(ParameterSetName = 'Default', HelpMessage = 'Invokes auditing reports.')]
+        [switch]
+        $InvokeActivityInsightAuditing,
 
         [Parameter(ParameterSetName = 'Default', HelpMessage = 'Specifies the directory to save the log file to. Default is $env:MyDocuments\SamReporting.')]
         [string]
@@ -266,6 +283,7 @@ function Start-SPOSAMReportCollection {
     $generateAllReports = $false
     $reportGenerated = $false
     $numOfReportsGenerated = 0
+    $numOfAuditReportsGenerated = 0
     $disconnectFromSCC = $false
     $modules = @('Microsoft.Online.SharePoint.PowerShell', 'ExchangeOnlineManagement')
 
@@ -353,6 +371,20 @@ function Start-SPOSAMReportCollection {
     }
 
     try {
+        # Only used to kick off auditing reports
+        if ($InvokeActivityInsightAuditing) {
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Invoking auditing reports for all entities."
+            $auditReportTypes = @('SharingLinksAnyone', 'SharingLinksPeopleInYourOrg', 'SharingLinksGuests', 'EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'CopilotAppInsights')
+
+            foreach ($entity in $auditReportTypes) {
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Invoking auditing reports for $($entity)."
+                Start-SPOAuditDataCollectionForActivityInsights -ReportEntity $entity -ErrorAction SilentlyContinue
+                Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Auditing reports for $($entity) invoked successfully."
+                $numOfAuditReportsGenerated ++
+            }
+            return
+        }
+
         if ($ReportEntity -eq 'All') {
             $script:generateAllReports = $true
             $reportEntities = @('EveryoneExceptExternalUsersAtSite', 'EveryoneExceptExternalUsersForItems', 'SharingLinks_Anyone', 'SharingLinks_PeopleInYourOrg', 'SharingLinks_Guests', 'SensitivityLabelForFiles', 'PermissionedUsers')
@@ -363,7 +395,7 @@ function Start-SPOSAMReportCollection {
 
         # Build reports
         foreach ($entity in $reportEntities) {
-            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "`r`nGenerating report for $(Get-ReportDescription -reportEntity $entity)"
+            Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Generating report for $(Get-ReportDescription -reportEntity $entity)"
 
             try {
                 if ($ReportType -eq "Snapshot" -and $entity -ne "PermissionedUsers" -and $entity -ne "SensitivityLabelForFiles" -and $generateAllReports -eq $true) {
@@ -467,7 +499,7 @@ function Start-SPOSAMReportCollection {
     }
     finally {
         # Disconnect from Security & Compliance Center if connected
-        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "`r`n-----------------------------------------"
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "-----------------------------------------"
         if ($CheckSensitivityLabel -or $disconnectFromSCC) {
             Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Disconnecting from the Security & Compliance Center."
             Disconnect-ExchangeOnline
@@ -484,8 +516,9 @@ function Start-SPOSAMReportCollection {
             Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Not disconnecting from the SPOService."
         }
 
-        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "`r`nTotal reports generated: $($numOfReportsGenerated)"
-        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "`r`nFor more information please see the logging file: $($LoggingDirectory)\$($LoggingFilename)"
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Total reports generated: $($numOfReportsGenerated)"
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Total audit reports invoked: $($numOfAuditReportsGenerated)"
+        Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "For more information please see the logging file: $($LoggingDirectory)\$($LoggingFilename)"
         Write-ToLog -LoggingDirectory $LoggingDirectory -LoggingFilename $LoggingFilename -InputString "Script completed."
     }
 }
